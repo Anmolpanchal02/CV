@@ -1,0 +1,101 @@
+CV Builder App
+A comprehensive CV Builder application that allows users to easily create professional and attractive resumes. The app provides a user-friendly interface for quickly entering and organizing educational background, work experience, and skills.
+
+Key Features
+Real-time Editing: See changes instantly as you build your CV.
+
+Template Selection: Choose from a variety of professional templates.
+
+User Dashboard: Manage all your saved CVs in one place.
+
+Login and Register: Users can create accounts to save their progress.
+
+JSON Data Management: CV data is saved and managed in JSON format.
+
+Technologies Used
+Front-end (Client)
+React: For building the user interface.
+
+Tailwind CSS: For fast and responsive design.
+
+React Router: For SPA (Single Page Application) navigation.
+
+Back-end (Server)
+Node.js & Express: For handling server-side logic and APIs.
+
+MongoDB: As the database, with Mongoose.
+
+JWT (JSON Web Tokens): For secure user authentication.
+
+Getting Started
+Follow these instructions to get a copy of the project running on your local machine.
+
+Prerequisites
+Make sure you have the following software installed on your system:
+
+Node.js (v14 or newer)
+
+npm or Yarn
+
+MongoDB
+
+Installation
+Clone the repository:
+
+git clone [repository-url]
+cd cv-builder-app
+
+Install dependencies for both the server and client:
+
+# For the server
+cd server
+npm install
+
+# For the client
+cd ../client
+npm install
+
+.env File Configuration:
+Create a .env file in the server folder and add the following variables:
+
+PORT=5000
+MONGO_URI=<your MongoDB connection string>
+JWT_SECRET=<a long, random string>
+
+Running the Project
+You will need to start both the server and the client in separate terminals.
+
+Run the Server:
+
+cd server
+npm run dev
+
+The server will run on http://localhost:5000 by default.
+
+Run the Client:
+
+cd client
+npm start
+
+The client will run on http://localhost:3000 by default.
+
+Folder Structure
+.
+├── client/
+│   ├── public/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── context/
+│   │   ├── pages/
+│   │   └── App.jsx
+│   └── package.json
+├── server/
+│   ├── controllers/
+│   ├── models/
+│   ├── routes/
+│   ├── middleware/
+│   ├── utils/
+│   └── server.js
+├── .gitignore
+├── package.json
+└── README.md
