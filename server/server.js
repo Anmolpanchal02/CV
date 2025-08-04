@@ -22,20 +22,11 @@ connectDB().then(() => {
     app.use('/api/auth', authRoutes);
     app.use('/api/cv', cvRoutes);
 
-    // --- Serve Frontend Static Files in Production ---
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
 
-    if (process.env.NODE_ENV === 'production') {
-        app.use(express.static(path.join(__dirname, '../client/dist')));
-        app.get('*', (req, res) =>
-            res.sendFile(path.resolve(__dirname, '../client', 'dist', 'index.html'))
-        );
-    } else {
-        app.get('/', (req, res) => {
-            res.send('API is running in development mode...');
-        });
-    }
+    app.get('/', (req, res) => {
+        res.send('API is running in development mode...');
+    });
+
     // --------------------------------------------------
 
     const PORT = process.env.PORT || 5000;
