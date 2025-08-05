@@ -21,6 +21,7 @@ import ClassicTemplate from '../components/cv-templates/ClassicTemplate';
 import CompactTemplate from '../components/cv-templates/CompactTemplate';
 import ModernSidebarTemplate from '../components/cv-templates/ModernSidebarTemplate';
 
+// Map template IDs to their respective React components
 const templateMap = {
     modern: ModernTemplate,
     classic: ClassicTemplate,
@@ -29,63 +30,71 @@ const templateMap = {
 };
 
 function EditorPage() {
+    // Get CV ID from URL params and initial template from search params
     const { id: cvId } = useParams();
     const [searchParams] = useSearchParams();
     const initialTemplate = searchParams.get('template') || 'modern';
 
     const navigate = useNavigate();
-    const { user, getToken } = useAuth();
+    const { user, getToken } = useAuth(); // Auth context for user and token
     const {
         currentCv,
         initializeNewCv,
         loadCv,
         loading,
         setLoading,
-        setError,
+        setError, // Global error state from CvContext
         reorderSections,
         updateCvTitle,
         updateTemplateName,
         updateCvData,
-    } = useCv();
-    const [localError, setLocalError] = useState('');
-    const [showSuccessMessage, setShowSuccessMessage] = useState(false);
-    const cvPreviewRef = useRef(null);
+    } = useCv(); // CV context for managing CV data
 
+    const [localError, setLocalError] = useState(''); // Local error state for this component
+    const [showSuccessMessage, setShowSuccessMessage] = useState(false); // State for success message
+    const cvPreviewRef = useRef(null); // Ref for the CV preview area for PDF export
+
+    // Effect to handle CV loading or initialization
     useEffect(() => {
+        // Redirect to auth page if user is not logged in
         if (!user) {
             navigate('/auth');
             return;
         }
 
+        // Check if CV is already loaded or initialized to prevent unnecessary re-fetches
         const isCvAlreadyLoadedOrInitialized = currentCv && (currentCv._id === cvId || (!cvId && !currentCv._id));
 
         if (cvId) {
+            // If a CV ID is present in the URL, try to fetch and load it
             if (!isCvAlreadyLoadedOrInitialized) {
                 const fetchCv = async () => {
                     try {
-                        setLoading(true);
-                        const token = getToken();
-                        const fetchedCv = await cvService.getCvById(cvId, token);
-                        loadCv(fetchedCv);
-                        setLocalError('');
-                        setLoading(false);
+                        setLoading(true); // Set global loading state
+                        const token = getToken(); // Get auth token
+                        const fetchedCv = await cvService.getCvById(cvId, token); // Fetch CV by ID
+                        loadCv(fetchedCv); // Load fetched CV into context
+                        setLocalError(''); // Clear any local errors
+                        setLoading(false); // Clear global loading state
                     } catch (err) {
-                        setError('Failed to load CV: ' + (err.response?.data?.message || err.message));
-                        setLocalError('Failed to load CV. Please try again.');
-                        setLoading(false);
+                        setError('Failed to load CV: ' + (err.response?.data?.message || err.message)); // Set global error
+                        setLocalError('Failed to load CV. Please try again.'); // Set local error
+                        setLoading(false); // Clear global loading state
                     }
                 };
                 fetchCv();
             }
         } else {
+            // If no CV ID, initialize a new CV
             if (!isCvAlreadyLoadedOrInitialized) {
-                initializeNewCv();
-                updateTemplateName(initialTemplate);
-                setLocalError('');
+                initializeNewCv(); // Initialize new CV in context
+                updateTemplateName(initialTemplate); // Set initial template from URL param
+                setLocalError(''); // Clear any local errors
             }
         }
     }, [user, cvId, navigate, getToken, loadCv, initializeNewCv, setLoading, setError, currentCv, initialTemplate, updateTemplateName]);
 
+    // Handles saving the current CV data
     const handleSaveCv = async () => {
         if (!currentCv) {
             setLocalError("No CV data to save.");
@@ -93,51 +102,99 @@ function EditorPage() {
         }
 
         try {
-            setLoading(true);
-            const token = getToken();
+            setLoading(true); // Set global loading state
+            const token = getToken(); // Get auth token
             let savedCv;
+
             if (currentCv._id) {
+                // If CV already exists, update it
                 savedCv = await cvService.updateCv(currentCv._id, currentCv, token);
-                setError(null);
-                setLocalError('');
-                setShowSuccessMessage(true);
-                setTimeout(() => setShowSuccessMessage(false), 3000);
+                setError(null); // Clear global error
+                setLocalError(''); // Clear local error
+                setShowSuccessMessage(true); // Show success message
+                setTimeout(() => setShowSuccessMessage(false), 3000); // Hide after 3 seconds
             } else {
+                // If it's a new CV, create it
                 savedCv = await cvService.createCv(currentCv, token);
-                setError(null);
-                setLocalError('');
-                setShowSuccessMessage(true);
-                setTimeout(() => setShowSuccessMessage(false), 3000);
-                navigate(`/editor/${savedCv._id}`, { replace: true });
+                setError(null); // Clear global error
+                setLocalError(''); // Clear local error
+                setShowSuccessMessage(true); // Show success message
+                setTimeout(() => setShowSuccessMessage(false), 3000); // Hide after 3 seconds
+                navigate(`/editor/${savedCv._id}`, { replace: true }); // Navigate to new CV's URL
             }
-            loadCv(savedCv);
-            setLoading(false);
+            loadCv(savedCv); // Load the saved CV into context (updates _id for new CVs)
+            setLoading(false); // Clear global loading state
         } catch (err) {
-            setError('Failed to save CV: ' + (err.response?.data?.message || err.message));
-            setLocalError('Error saving CV: ' + (err.response?.data?.message || err.message));
-            setLoading(false);
+            setError('Failed to save CV: ' + (err.response?.data?.message || err.message)); // Set global error
+            setLocalError('Error saving CV: ' + (err.response?.data?.message || err.message)); // Set local error
+            setLoading(false); // Clear global loading state
         }
     };
 
-    const exportPdf = () => {
+    // Handles exporting the CV to PDF
+    const exportPdf = async () => { // Made async to await html2pdf operations
         if (cvPreviewRef.current) {
+            console.log('Export PDF called', cvPreviewRef.current);
+
+            // Save original styles of the preview container
+            const originalMaxHeight = cvPreviewRef.current.style.maxHeight;
+            const originalOverflowY = cvPreviewRef.current.style.overflowY;
+            const originalPreviewBg = cvPreviewRef.current.style.backgroundColor; // Save original background color of the preview div
+
+            // Store original body background style
+            const originalBodyBg = document.body.style.backgroundColor;
+            // Temporarily set body background to white to avoid potential issues with complex backgrounds/gradients
+            document.body.style.backgroundColor = '#FFFFFF'; // Explicitly set to white
+
+            // Temporarily remove max-height and overflow-y for full content capture by html2canvas
+            cvPreviewRef.current.style.maxHeight = 'none';
+            cvPreviewRef.current.style.overflowY = 'visible';
+            // Also explicitly set the preview div's background to white during capture
+            cvPreviewRef.current.style.backgroundColor = '#FFFFFF';
+
+
             const opt = {
                 margin: 0,
                 filename: `${currentCv?.title || 'resume'}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2 },
+                html2canvas: {
+                    scale: 2,
+                    // Explicitly set background color for html2canvas to white
+                    // This can help bypass issues with complex or unsupported backgrounds
+                    backgroundColor: '#FFFFFF',
+                },
                 jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-                pagebreak: { mode: 'avoid-all' }
+                pagebreak: { mode: 'avoid-all' } // Ensures content breaks cleanly across pages
             };
-            html2pdf().from(cvPreviewRef.current).set(opt).save();
+
+            try {
+                // Generate and save the PDF
+                await html2pdf().from(cvPreviewRef.current).set(opt).save();
+                console.log('PDF generated and saved successfully.');
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                setLocalError('Failed to generate PDF. Please try again.');
+            } finally {
+                // Restore original styles after PDF generation
+                cvPreviewRef.current.style.maxHeight = originalMaxHeight;
+                cvPreviewRef.current.style.overflowY = originalOverflowY;
+                cvPreviewRef.current.style.backgroundColor = originalPreviewBg; // Restore original preview background color
+                // Restore original body background
+                document.body.style.backgroundColor = originalBodyBg;
+            }
+        } else {
+            console.error('cvPreviewRef.current is null, cannot export PDF.');
+            setLocalError('Could not generate PDF. Preview content not found.');
         }
     };
 
+    // Callback for handling drag-and-drop section reordering
     const onDragEnd = useCallback((result) => {
         if (!result.destination || result.source.index === result.destination.index) return;
         reorderSections(result.source.index, result.destination.index);
     }, [reorderSections]);
 
+    // Show loading state while CV data is being fetched or initialized
     if (loading || !currentCv) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 flex items-center justify-center">
@@ -149,11 +206,12 @@ function EditorPage() {
         );
     }
 
+    // Determine which template component to render based on currentCv.templateName
     const CurrentTemplateComponent = templateMap[currentCv.templateName];
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
-            {/* Header */}
+            {/* Header for Editor Page */}
             <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-10">
                 <div className="max-w-7xl mx-auto px-6 py-4">
                     <div className="flex items-center justify-between">
@@ -164,9 +222,9 @@ function EditorPage() {
                             <p className="text-gray-600 mt-1">Design your professional resume with style</p>
                         </div>
                         <div className="flex items-center gap-3">
-                            <button 
-                                onClick={handleSaveCv} 
-                                disabled={loading} 
+                            <button
+                                onClick={handleSaveCv}
+                                disabled={loading}
                                 className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl font-medium hover:from-indigo-700 hover:to-indigo-800 disabled:from-gray-400 disabled:to-gray-500 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                             >
                                 {loading ? (
@@ -183,8 +241,8 @@ function EditorPage() {
                                     </div>
                                 )}
                             </button>
-                            <button 
-                                onClick={exportPdf} 
+                            <button
+                                onClick={exportPdf}
                                 className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-xl font-medium hover:from-emerald-700 hover:to-emerald-800 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                             >
                                 <div className="flex items-center gap-2">
@@ -285,7 +343,7 @@ function EditorPage() {
                                 Edit Sections
                                 <span className="text-sm font-normal text-gray-500 ml-2">(Drag to reorder)</span>
                             </h3>
-                            
+
                             <DragDropContext onDragEnd={onDragEnd}>
                                 <Droppable droppableId="cv-sections">
                                     {(provided) => (
@@ -305,8 +363,8 @@ function EditorPage() {
                                                                         snapshot.isDragging ? 'shadow-2xl scale-105 rotate-2' : 'hover:shadow-xl'
                                                                     }`}
                                                                 >
-                                                                    <div 
-                                                                        className="flex justify-between items-center p-4 bg-gradient-to-r from-gray-50 to-white cursor-grab active:cursor-grabbing border-b border-gray-100" 
+                                                                    <div
+                                                                        className="flex justify-between items-center p-4 bg-gradient-to-r from-gray-50 to-white cursor-grab active:cursor-grabbing border-b border-gray-100"
                                                                         {...provided.dragHandleProps}
                                                                     >
                                                                         <div className="flex items-center gap-3">
@@ -376,50 +434,51 @@ function EditorPage() {
     );
 }
 
+// SectionControls component (remains the same as provided previously)
 const SectionControls = () => {
     const { currentCv, addNewCvSection, removeCvSection } = useCv();
     const availableSections = [
-        { 
-            type: 'personal', 
-            label: 'Personal Info', 
+        {
+            type: 'personal',
+            label: 'Personal Info',
             icon: '👤',
-            defaultData: { name: '', title: '', email: '', phone: '', linkedin: '', github: '', website: '', address: '' } 
+            defaultData: { name: '', title: '', email: '', phone: '', linkedin: '', github: '', website: '', address: '' }
         },
-        { 
-            type: 'summary', 
-            label: 'Summary', 
-            icon: '📝',
-            defaultData: { text: '' } 
+        {
+            type: 'summary',
+            label: 'Summary',
+            icon: '�',
+            defaultData: { text: '' }
         },
-        { 
-            type: 'experience', 
-            label: 'Experience', 
+        {
+            type: 'experience',
+            label: 'Experience',
             icon: '💼',
-            defaultData: [] 
+            defaultData: []
         },
-        { 
-            type: 'education', 
-            label: 'Education', 
+        {
+            type: 'education',
+            label: 'Education',
             icon: '🎓',
-            defaultData: [] 
+            defaultData: []
         },
-        { 
-            type: 'skills', 
-            label: 'Skills', 
+        {
+            type: 'skills',
+            label: 'Skills',
             icon: '⚡',
-            defaultData: { list: [] } 
+            defaultData: { list: [] }
         },
-        { 
-            type: 'projects', 
-            label: 'Projects', 
+        {
+            type: 'projects',
+            label: 'Projects',
             icon: '🚀',
-            defaultData: [] 
+            defaultData: []
         },
-        { 
-            type: 'custom', 
-            label: 'Custom Section', 
+        {
+            type: 'custom',
+            label: 'Custom Section',
             icon: '➕',
-            defaultData: { title: 'New Custom Section', content: '' } 
+            defaultData: { title: 'New Custom Section', content: '' }
         },
     ];
 
@@ -437,8 +496,8 @@ const SectionControls = () => {
                 {availableSections.map(sec => (
                     <React.Fragment key={sec.type}>
                         {!currentSectionTypes.includes(sec.type) ? (
-                            <button 
-                                onClick={() => addNewCvSection(sec.type, sec.defaultData)} 
+                            <button
+                                onClick={() => addNewCvSection(sec.type, sec.defaultData)}
                                 className="flex items-center gap-3 p-3 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 text-indigo-700 rounded-xl hover:from-indigo-100 hover:to-purple-100 hover:border-indigo-300 transition-all duration-200 transform hover:scale-105"
                             >
                                 <span className="text-lg">{sec.icon}</span>
@@ -446,8 +505,8 @@ const SectionControls = () => {
                             </button>
                         ) : (
                             (sec.type !== 'personal' && sec.type !== 'summary') && (
-                                <button 
-                                    onClick={() => removeCvSection(sec.type)} 
+                                <button
+                                    onClick={() => removeCvSection(sec.type)}
                                     className="flex items-center gap-3 p-3 bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 text-red-700 rounded-xl hover:from-red-100 hover:to-pink-100 hover:border-red-300 transition-all duration-200 transform hover:scale-105"
                                 >
                                     <span className="text-lg">🗑️</span>

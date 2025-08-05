@@ -8,7 +8,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://cv-cswb.onrender.com/', // Your backend server
+        target: 'http://localhost:5000', // Your backend server
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '/api'), // Rewrite ensures /api is kept
       },

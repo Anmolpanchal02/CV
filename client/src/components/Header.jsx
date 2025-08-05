@@ -46,7 +46,7 @@ function Header() {
                     >
                         <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400" />
                         <span className="bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">
-                            CV Builder
+                            CV Builder Pro
                         </span>
                     </Link>
 
